@@ -7,7 +7,7 @@ FreshWash Laundry - Complete E-commerce Solution
 Project Overview
 FreshWash Laundry - "Clean Clothes, Happy You"
 
-A full-featured, responsive laundry e-commerce platform built with modern technologies and ready for cloud deployment.
+A full-featured, responsive laundry e-commerce platform built with modern technologies.
 
 Tech Stack
 - Frontend:React + Vite + TailwindCSS
@@ -21,7 +21,7 @@ Tech Stack
 Test Credentials
 -- Admin: admin@freshwash.com / password123
 -- Test User: test@example.com / password123
--- Stripe Test Card: 4242 4242 4242 4242
+-- Stripe Test Card: 1234 1234 1234 1234
 
 Features
 -- User Authentication (JWT)

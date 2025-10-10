@@ -36,7 +36,7 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
+  origin: process.env.NODE_ENV === 'development' 
     ? [process.env.FRONTEND_URL, 'https://your-frontend-domain.vercel.app']
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true

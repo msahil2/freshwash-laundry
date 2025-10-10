@@ -7,6 +7,7 @@ import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 
 // Pages
+
 import Home from './pages/Home'
 import Services from './pages/Services'
 import Cart from './pages/Cart'

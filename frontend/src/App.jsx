@@ -17,7 +17,7 @@ import Dashboard from './pages/Dashboard'
 import Contact from './pages/Contact'
 import Feedback from './pages/Feedback'
 import AdminDashboard from './pages/AdminDashboard'
-import OrderSuccess from './pages/OrderSuccess.jsx'
+import OrderSuccess from './pages/OrderSuccess'
 
 function App() {
   return (

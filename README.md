@@ -15,7 +15,7 @@ Tech Stack
 - Database: MongoDB Atlas
 - Authentication: JWT with refresh tokens
 - Payment: Stripe (test mode)but now card(demo)
-- Email: Nodemailer
+- Email: Nodemailer (currently this feature is not working since freshwash does not have its own email id now ,kept for future)
 - Deployment: Vercel (frontend) + Render (backend)
 
 Test Credentials

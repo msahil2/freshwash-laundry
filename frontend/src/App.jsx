@@ -7,7 +7,6 @@ import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 
 // Pages
-
 import Home from './pages/Home'
 import Services from './pages/Services'
 import Cart from './pages/Cart'
@@ -19,6 +18,7 @@ import Contact from './pages/Contact'
 import Feedback from './pages/Feedback'
 import AdminDashboard from './pages/AdminDashboard'
 import OrderSuccess from './pages/OrderSuccess.jsx'
+import ForgotPassword from './pages/ForgotPassword'
 
 function App() {
   return (
@@ -32,6 +32,7 @@ function App() {
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/cart" element={<Cart />} />
           
           {/* Protected Routes */}

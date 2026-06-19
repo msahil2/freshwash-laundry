@@ -30,6 +30,7 @@
     "mongoose": "^6.13.8",
     "multer": "^2.0.2",
     "nodemailer": "^6.10.1",
+    "razorpay": "^2.9.6",
     "stripe": "^11.18.0"
   },
   "devDependencies": {

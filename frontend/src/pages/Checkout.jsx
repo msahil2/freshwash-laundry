@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Lock, MapPin, CreditCard, CheckCircle } from 'lucide-react'
+import { Lock, MapPin, CreditCard } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { formatPrice } from '../utils/api'
@@ -23,16 +23,6 @@ const Checkout = () => {
     instructions: ''
   })
 
-  // Payment card state
-  const [cardDetails, setCardDetails] = useState({
-    cardNumber: '',
-    cardName: '',
-    expiryDate: '',
-    cvv: ''
-  })
-
-  const [cardErrors, setCardErrors] = useState({})
-
   const taxAmount = total * 0.1
   const finalTotal = total + taxAmount
 
@@ -43,174 +33,155 @@ const Checkout = () => {
     })
   }
 
-  // Format card number with spaces
-  const formatCardNumber = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-    const parts = []
-    for (let i = 0; i < v.length; i += 4) {
-      parts.push(v.substring(i, i + 4))
+  const validateAddress = () => {
+    if (!shippingAddress.name) {
+      toast.error('Please enter your name')
+      return false
     }
-    return parts.join(' ').substring(0, 19)
-  }
-
-  // Format expiry date
-  const formatExpiry = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-    if (v.length >= 2) {
-      return v.slice(0, 2) + '/' + v.slice(2, 4)
+    if (!shippingAddress.phone) {
+      toast.error('Please enter your phone number')
+      return false
     }
-    return v
-  }
-
-  const handleCardInputChange = (e) => {
-    const { name, value } = e.target
-    let formattedValue = value
-
-    if (name === 'cardNumber') {
-      formattedValue = formatCardNumber(value)
-    } else if (name === 'expiryDate') {
-      formattedValue = formatExpiry(value)
-      if (formattedValue.length > 5) return
-    } else if (name === 'cvv') {
-      if (value.length > 3 || !/^\d*$/.test(value)) return
-      formattedValue = value
+    if (!shippingAddress.street) {
+      toast.error('Please enter your street address')
+      return false
     }
-
-    setCardDetails({ ...cardDetails, [name]: formattedValue })
-    
-    // Clear error for this field
-    if (cardErrors[name]) {
-      setCardErrors({ ...cardErrors, [name]: '' })
+    if (!shippingAddress.city) {
+      toast.error('Please enter your city')
+      return false
     }
-  }
-
-  const validateCardDetails = () => {
-    const errors = {}
-
-    if (!cardDetails.cardNumber || cardDetails.cardNumber.replace(/\s/g, '').length !== 16) {
-      errors.cardNumber = 'Card number must be 16 digits'
+    if (!shippingAddress.state) {
+      toast.error('Please enter your state')
+      return false
     }
-
-    if (!cardDetails.cardName || cardDetails.cardName.length < 3) {
-      errors.cardName = 'Cardholder name is required'
-    }
-
-    if (!cardDetails.expiryDate || cardDetails.expiryDate.length !== 5) {
-      errors.expiryDate = 'Valid expiry date required (MM/YY)'
-    } else {
-      const [month, year] = cardDetails.expiryDate.split('/')
-      const currentYear = new Date().getFullYear() % 100
-      const currentMonth = new Date().getMonth() + 1
-
-      if (parseInt(month) < 1 || parseInt(month) > 12) {
-        errors.expiryDate = 'Invalid month'
-      } else if (parseInt(year) < currentYear || (parseInt(year) === currentYear && parseInt(month) < currentMonth)) {
-        errors.expiryDate = 'Card has expired'
-      }
-    }
-
-    if (!cardDetails.cvv || cardDetails.cvv.length !== 3) {
-      errors.cvv = '3-digit CVV required'
-    }
-
-    setCardErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const validateShippingAddress = () => {
-    if (!shippingAddress.name || !shippingAddress.phone || 
-        !shippingAddress.street || !shippingAddress.city || 
-        !shippingAddress.state || !shippingAddress.zipCode) {
-      toast.error('Please fill all required address fields')
+    if (!shippingAddress.zipCode) {
+      toast.error('Please enter your ZIP code')
       return false
     }
     return true
   }
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.onload = () => resolve(true)
+      script.onerror = () => resolve(false)
+      document.body.appendChild(script)
+    })
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    if (!validateAddress()) return
     if (items.length === 0) {
       toast.error('Your cart is empty')
-      return
-    }
-
-    if (!validateShippingAddress()) {
-      return
-    }
-
-    if (!validateCardDetails()) {
-      toast.error('Please check your card details')
       return
     }
 
     setLoading(true)
 
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      // Create order with demo payment
+      // Step 1: Create order in database first
       const orderData = {
         orderItems: items.map(item => ({
-          service: item.service._id || item.service,
-          serviceType: item.serviceType || item.type || 'standard',
-          quantity: item.quantity || 1,
-          price: item.price || 0,
-          subtotal: item.subtotal || item.price * item.quantity
+          service: item.service._id,
+          serviceType: item.serviceType,
+          quantity: item.quantity,
+          price: item.price,
+          subtotal: item.subtotal
         })),
-        shippingAddress: {
-          name: shippingAddress.name,
-          phone: shippingAddress.phone,
-          street: shippingAddress.street,
-          city: shippingAddress.city,
-          state: shippingAddress.state,
-          zipCode: shippingAddress.zipCode,
-          instructions: shippingAddress.instructions || ''
-        },
-        paymentMethod: 'stripe',
+        shippingAddress,
+        paymentMethod: 'razorpay',
         itemsPrice: total,
         shippingPrice: 0,
         taxPrice: taxAmount,
-        totalPrice: finalTotal,
-        isPaid: true,
-        paidAt: new Date(),
-        paymentResult: {
-          id: 'DEMO_' + Date.now(),
-          status: 'succeeded',
-          update_time: new Date().toISOString(),
-          email_address: user?.email || '',
-          cardLast4: cardDetails.cardNumber.replace(/\s/g, '').slice(-4),
-          isDemoMode: true
-        }
+        totalPrice: finalTotal
       }
-
-      console.log('Sending order data:', orderData) // Debug log
 
       const orderResponse = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/orders`,
-        orderData,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
+        orderData
       )
 
-      // Clear cart and show success
-      clearCart()
-      toast.success('Payment Successful! Order placed.')
-      navigate('/orderSuccess', { 
-        state: { 
-          orderId: orderResponse.data.order?._id || orderResponse.data._id
-        } 
-      })
+      const createdOrderId = orderResponse.data.order._id
+
+      // Step 2: Create Razorpay payment order
+      const paymentResponse = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/payments/create-order`,
+        { amount: finalTotal }
+      )
+
+      const { orderId: razorpayOrderId, keyId } = paymentResponse.data
+
+      // Step 3: Load Razorpay script
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        toast.error('Failed to load payment gateway. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      // Step 4: Open Razorpay checkout
+      const options = {
+        key: keyId,
+        amount: Math.round(finalTotal * 100),
+        currency: 'INR',
+        name: 'FreshWash Laundry',
+        description: 'Laundry Service Payment',
+        order_id: razorpayOrderId,
+        prefill: {
+          name: user?.name || shippingAddress.name,
+          email: user?.email || '',
+          contact: shippingAddress.phone
+        },
+        notes: {
+          orderId: createdOrderId
+        },
+        theme: {
+          color: '#2563eb'
+        },
+        handler: async (response) => {
+          try {
+            // Step 5: Verify payment on backend
+            await axios.post(
+              `${import.meta.env.VITE_API_URL}/api/payments/verify`,
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderId: createdOrderId
+              }
+            )
+
+            clearCart()
+            toast.success('Payment successful! Order placed.')
+            navigate('/order-success', {
+              state: { orderId: createdOrderId }
+            })
+          } catch (error) {
+            toast.error('Payment verification failed. Contact support.')
+            console.error('Verification error:', error)
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.error('Payment cancelled')
+            setLoading(false)
+          }
+        }
+      }
+
+      const rzp = new window.Razorpay(options)
+      rzp.open()
+      setLoading(false)
 
     } catch (error) {
       console.error('Checkout error:', error)
-      console.error('Error response:', error.response?.data) // Debug log
-      toast.error(error.response?.data?.message || 'Order creation failed. Please try again.')
-    } finally {
+      toast.error(
+        error.response?.data?.message || 'Checkout failed. Please try again.'
+      )
       setLoading(false)
     }
   }
@@ -231,7 +202,7 @@ const Checkout = () => {
                   <h2 className="text-xl font-semibold">Delivery Address</h2>
                 </div>
 
-                <form className="space-y-4">
+                <div className="space-y-4">
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -274,7 +245,7 @@ const Checkout = () => {
                       onChange={handleInputChange}
                       required
                       className="input-field"
-                      placeholder="House no., Building name"
+                      placeholder="House no., Building name, Street"
                     />
                   </div>
 
@@ -333,103 +304,39 @@ const Checkout = () => {
                       onChange={handleInputChange}
                       rows="3"
                       className="input-field"
-                      placeholder="Any special instructions for delivery..."
+                      placeholder="Any special instructions..."
                     />
                   </div>
-                </form>
+                </div>
               </div>
 
-              {/* Payment Method */}
+              {/* Payment Info */}
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center space-x-2 mb-6">
+                <div className="flex items-center space-x-2 mb-4">
                   <CreditCard className="h-5 w-5 text-primary-600" />
-                  <h2 className="text-xl font-semibold">Payment Information</h2>
+                  <h2 className="text-xl font-semibold">Payment</h2>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Card Number *
-                    </label>
-                    <input
-                      type="text"
-                      name="cardNumber"
-                      value={cardDetails.cardNumber}
-                      onChange={handleCardInputChange}
-                      className={`input-field ${cardErrors.cardNumber ? 'border-red-500' : ''}`}
-                      placeholder="1234 5678 9012 3456"
-                      maxLength="19"
-                    />
-                    {cardErrors.cardNumber && (
-                      <p className="text-red-500 text-xs mt-1">{cardErrors.cardNumber}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cardholder Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="cardName"
-                      value={cardDetails.cardName}
-                      onChange={handleCardInputChange}
-                      className={`input-field ${cardErrors.cardName ? 'border-red-500' : ''}`}
-                      placeholder="Name on card"
-                    />
-                    {cardErrors.cardName && (
-                      <p className="text-red-500 text-xs mt-1">{cardErrors.cardName}</p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Expiry Date *
-                      </label>
-                      <input
-                        type="text"
-                        name="expiryDate"
-                        value={cardDetails.expiryDate}
-                        onChange={handleCardInputChange}
-                        className={`input-field ${cardErrors.expiryDate ? 'border-red-500' : ''}`}
-                        placeholder="MM/YY"
-                        maxLength="5"
-                      />
-                      {cardErrors.expiryDate && (
-                        <p className="text-red-500 text-xs mt-1">{cardErrors.expiryDate}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        CVV *
-                      </label>
-                      <input
-                        type="text"
-                        name="cvv"
-                        value={cardDetails.cvv}
-                        onChange={handleCardInputChange}
-                        className={`input-field ${cardErrors.cvv ? 'border-red-500' : ''}`}
-                        placeholder="123"
-                        maxLength="3"
-                      />
-                      {cardErrors.cvv && (
-                        <p className="text-red-500 text-xs mt-1">{cardErrors.cvv}</p>
-                      )}
-                    </div>
-                  </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800 font-medium mb-2">
+                    Secure Payment via Razorpay
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    Supports UPI, Credit/Debit Cards, Net Banking, and Wallets.
+                    You will be redirected to Razorpay secure payment page.
+                  </p>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                  <div className="flex items-start space-x-2">
-                    <Lock className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-blue-800">
-                      <p className="font-medium mb-1">🎭 Demo Mode Active</p>
-                      <p>Use any valid card format for testing</p>
-                      <p className="font-mono text-xs mt-1">Example: 4242 4242 4242 4242</p>
-                    </div>
-                  </div>
+                <div className="mt-4 flex items-center space-x-4">
+                  <img
+                    src="https://razorpay.com/favicon.png"
+                    alt="Razorpay"
+                    className="h-6"
+                  />
+                  <span className="text-sm text-gray-600">
+                    Secured by Razorpay
+                  </span>
+                  <Lock className="h-4 w-4 text-green-600" />
                 </div>
               </div>
             </div>
@@ -439,13 +346,15 @@ const Checkout = () => {
               <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
                 <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
 
-                <div className="space-y-4 mb-6">
+                <div className="space-y-4 mb-6 max-h-48 overflow-y-auto">
                   {items.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm">
                       <span className="text-gray-600">
                         {item.service.name} × {item.quantity}
                       </span>
-                      <span className="font-medium">{formatPrice(item.subtotal)}</span>
+                      <span className="font-medium">
+                        {formatPrice(item.subtotal)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -479,18 +388,18 @@ const Checkout = () => {
                   {loading ? (
                     <>
                       <div className="loader"></div>
-                      <span>Processing Payment...</span>
+                      <span>Processing...</span>
                     </>
                   ) : (
                     <>
                       <Lock className="h-4 w-4" />
-                      <span>Pay Now</span>
+                      <span>Pay {formatPrice(finalTotal)}</span>
                     </>
                   )}
                 </button>
 
                 <p className="text-xs text-gray-500 text-center mt-4">
-                  By placing this order, you agree to our Terms & Conditions
+                  By placing this order you agree to our Terms & Conditions
                 </p>
               </div>
             </div>
